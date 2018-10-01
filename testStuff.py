@@ -5,6 +5,11 @@ import cv2  # This is what i was using for some image processing.
 import numpy as np
 import json
 
+# Import the required module for text
+# to speech conversion
+from gtts import gTTS
+import os
+
 
 '''
 This is ugly initial tests.
@@ -43,6 +48,8 @@ def imageStuff(vals=[15,14,16], headings=["Connection", "Battery Level", "IP Add
 
 # could include the get to get all audio, then put that into a list and just start playing from there.
 def playAudio(fileName):
+
+
     print("[INFO] Playing Audio: {}".format(fileName))
     url = "http://{}/api/audio/play".format(IPADDRESS)
 
@@ -169,12 +176,24 @@ def basicSequence():
     # playAudio("032-Bewbewbeeew.wav")
     changeImage("pink_sunset.jpg")
     drive()
-    playAudio("002-Growl-01.wav")
-    drive(speed=20, angularvelocity=100, time=2000)  # this actually turns in place pretty well, turns 90 degrees to the right on the table but turns to the left.
-    playAudio("006-EhMeEhmeUh.wav")
-    drive(speed=20, angularvelocity=-100, time=700)
-    playAudio("001-OooOooo.wav")
+    # The text that you want to convert to audio
+    mytext = 'Misty Test!'
 
+    # Language in which you want to convert
+    language = 'en'
+
+    # Passing the text and language to the engine,
+    # here we have marked slow=False. Which tells
+    # the module that the converted audio should
+    # have a high speed
+    myobj = gTTS(text=mytext, lang=language, slow=False)
+
+    # Saving the converted audio in a mp3 file named
+    # welcome
+    myobj.save("welcome.mp3")
+
+    # Playing the converted file
+    playAudio("mpg321 welcome.mp3")
     drive(speed=0, angularvelocity=0, time=1000)  # just a stop
 
 
