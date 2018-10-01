@@ -176,7 +176,11 @@ def basicSequence():
     # playAudio("032-Bewbewbeeew.wav")
     changeImage("pink_sunset.jpg")
     drive()
-    # The text that you want to convert to audio
+    playAudio("002-Growl-01.wav")
+    drive(speed=20, angularvelocity=100, time=2000)  # this actually turns in place pretty well, turns 90 degrees to the right on the table but turns to the left.
+    playAudio("006-EhMeEhmeUh.wav")
+    drive(speed=20, angularvelocity=-100, time=700)
+    playAudio("001-OooOooo.wav")
     mytext = 'Misty Test!'
 
     # Language in which you want to convert
