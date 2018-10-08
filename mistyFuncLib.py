@@ -10,9 +10,14 @@ import json
 import requests
 from gtts import gTTS
 import hashlib
+import time
 
 
-def change_led(ip_address, r, g, b):
+ip_address = "192.168.1.5"
+
+
+# Display and LED
+def change_led(r, g, b):
     if r not in range(256):
         raise Exception("The red value need to be in 0-255 range")
     if g not in range(256):
@@ -29,7 +34,7 @@ def change_led(ip_address, r, g, b):
     print(response.text)
 
 
-def get_list_of_image(ip_address):
+def get_list_of_image():
     image_list = []
     url = "http://" + ip_address + "/api/images"
     headers = {
@@ -45,7 +50,7 @@ def get_list_of_image(ip_address):
     return image_list
 
 
-def change_display_image(ip_address, file_name, time_out):
+def change_display_image(file_name, time_out):
     if file_name not in get_list_of_image(ip_address):
         raise Exception(file_name,"not found on the robot")
     else:
@@ -60,7 +65,7 @@ def change_display_image(ip_address, file_name, time_out):
         print(response.text)
 
 
-def save_image_to_misty(image_name, ip_address):
+def save_image_to_misty(image_name):
     with open(image_name, "rb") as image_file:
         byte_array = bytearray(image_file.read())
 
@@ -82,7 +87,7 @@ def save_image_to_misty(image_name, ip_address):
     print(response.text)
 
 
-def delete_image_asset_from_robot(image_name, ip_address):
+def delete_image_asset_from_robot(image_name):
     url = "http://" + ip_address + "/api/images/delete"
     payload = json.dumps({"FileName": image_name})
     headers = {
@@ -93,7 +98,8 @@ def delete_image_asset_from_robot(image_name, ip_address):
     print(response.text)
 
 
-def get_list_of_audio_clips(ip_address):
+# Audio
+def get_list_of_audio_clips():
     audio_list = []
     url = "http://" + ip_address + "/api/audio/clips"
     headers = {
@@ -109,9 +115,9 @@ def get_list_of_audio_clips(ip_address):
     return audio_list
 
 
-def play_audio_clip(file_name, volume, ip_address):
-    if file_name not in get_list_of_audio_clips(ip_address):
-        raise Exception(file_name,"not found on the robot")
+def play_audio_clip(file_name, volume):
+    if file_name not in get_list_of_audio_clips():
+        raise Exception(file_name, "not found on the robot")
     elif volume not in range(101):
         raise Exception("Invalid volume value")
     else:
@@ -126,7 +132,7 @@ def play_audio_clip(file_name, volume, ip_address):
         print(response.text)
 
 
-def save_audio_to_misty(audio_name, ip_address):
+def save_audio_to_misty(audio_name):
     with open(audio_name, "rb") as audio_file:
         byte_array = bytearray(audio_file.read())
 
@@ -148,10 +154,10 @@ def save_audio_to_misty(audio_name, ip_address):
     print(response.text)
 
 
-# Still have problem in this delete function
-def delete_audio_clip_from_robot(audio_name, ip_address):
-    url = "http://" + ip_address + "/api/audio/delete"
-    payload = json.dumps({"FileName": audio_name})
+# Enables you to remove an audio file from Misty that you have previously uploaded
+def delete_audio_asset_from_robot(file_name):
+    url = "http://" + ip_address + "/api/beta/audio/delete"
+    payload = json.dumps({"FileName": file_name})
     headers = {
         'Content-Type': "application/json",
         'Cache-Control': "no-cache"
@@ -165,21 +171,179 @@ def convert_text_to_audio(text):
     tts.save(hashlib.md5(text).hexdigest()[:15]+".mp3")
 
 
-if __name__ == "__main__":
-    ipAddress = "192.168.1.5"
-    # change_led(ipAddress, 124, 40, 20)
-    # get_list_of_image(ipAddress)
-    # change_display_image(ipAddress, "Angry.jpg", 10)
-    # get_list_of_audio_clips(ipAddress)
-    # play_audio_clip(ipAddress, "001-OooOooo.wav", 50)
-    # delete_image_asset_from_robot("test.png", ipAddress)
-    # save_image_to_misty("test.png", ipAddress)
-    # save_audio_to_misty("test.mp3", ipAddress)
-    # get_list_of_audio_clips(ipAddress)
-    # play_audio_clip("test.mp3", 100, ipAddress)
-    # delete_audio_clip_from_robot("test.mp3", ipAddress)
+## Locomotion
+
+# Drives Misty forward or backward at a specific speed until cancelled.
+# linear_velocity: speed in a straight line (-100: backward, 100: forward)
+# angular_velocity: speed and direction of rotation (-100: clockwise, 100: counter-clockwise)
+def drive(linear_velocity, angular_velocity):
+    url = "http://" + ip_address + "/api/drive"
+    payload = json.dumps({"LinearVelocity": linear_velocity,
+                          "AngularVelocity": angular_velocity})
+    headers = {
+        'Content-Type': "application/json",
+        'Cache-Control': "no-cache"
+    }
+    response = requests.request("POST", url, data=payload, headers=headers)
+    print(response.text)
+
+
+# Drives Misty forward or backward at a set speed, with a given rotation, for a specified amount of time.
+# linear_velocity: speed in a straight line (-100: backward, 100: forward)
+# angular_velocity: speed and direction of rotation (-100: clockwise, 100: counter-clockwise)
+# time_in_ms: a value in milliseconds that specifies the duration of movement (0 to 1000ms)
+def drive_time(linear_velocity, angular_velocity, time_in_ms):
+    url = "http://" + ip_address + "/api/drive/time"
+    payload = json.dumps({"LinearVelocity": linear_velocity,
+                          "AngularVelocity": angular_velocity,
+                          "TimeMS": time_in_ms})
+    headers = {
+        'Content-Type': "application/json",
+        'Cache-Control': "no-cache"
+    }
+    response = requests.request("POST", url, data=payload, headers=headers)
+    print(response.text)
+
+
+# Drives Misty left, right, forward, or backward, depending on the track speeds specified for the individual tracks.
+# left_track_speed: a value for the speed of the left track (-100, 100)
+# right_track_speed: a value for the speed of the right track (-100, 100)
+def locomotion_track(left_track_speed, right_track_speed):
+    url = "http://" + ip_address + "/api/drive/track"
+    payload = json.dumps({"LeftTrackSpeed": left_track_speed,
+                          "RightTrackSpeed": right_track_speed})
+    headers = {
+        'Content-Type': "application/json",
+        'Cache-Control': "no-cache"
+    }
+    response = requests.request("POST", url, data=payload, headers=headers)
+    print(response.text)
+
+
+# Stops Misty's movement
+def stop():
+    url = "http://" + ip_address + "/api/drive/stop"
+    headers = {
+        'Content-Type': "application/json",
+        'Cache-Control': "no-cache"
+    }
+    response = requests.request("POST", url, headers=headers)
+    print(response.text)
+
+
+## Misty Information
+
+# Obtains a list of local WiFi networks and basic information regarding each
+def get_available_wifi_networks():
+    url = "http://" + ip_address + "/api/info/wifi"
+    headers = {
+        'Content-Type': "application/json",
+        'Cache-Control': "no-cache"
+    }
+    response = requests.request("GET", url, headers=headers)
+    print(response.text)
+
+
+# Obtains Misty's current battery level
+def get_battery_level():
+    url = "http://" + ip_address + "/api/info/battery"
+    headers = {
+        'Content-Type': "application/json",
+        'Cache-Control': "no-cache"
+    }
+    response = requests.request("GET", url, headers=headers)
+    print(response.text)
+
+
+# Obtains the robot's recent log files.
+def get_log_file(date=None):
+    if date is None:
+        url = "http://" + ip_address + "/api/info/logs"
+        log_file_name = "full_logs.txt"
+    else:
+        url = "http://" + ip_address + "/api/info/logs?date=" + date
+        log_file_name = "log_" + date + ".txt"
+    headers = {
+        'Content-Type': "application/json",
+        'Cache-Control': "no-cache"
+    }
+    response = requests.request("GET", url, headers=headers)
+    with open(log_file_name, mode='w') as f:
+        f.write(response.text)
+
+
+## Head Movement
+
+# For Misty I, the MoveHead command can only control the up-down movement of Misty's head
+def set_head_position(position, velocity):
+    url = "http://" + ip_address + "/api/beta/head/position"
+    payload = json.dumps({"Axis": "pitch",
+                          "position": position,
+                          "Velocity": velocity})
+    headers = {
+        'Content-Type': "application/json",
+        'Cache-Control': "no-cache"
+    }
+    response = requests.request("POST", url, data=payload, headers=headers)
+    print(response.text)
+
+
+## Recording Audio
+
+# Directs Misty to initiate an audio recording and save it with the specified file name
+def start_recording_audio(file_name):
+    url = "http://" + ip_address + "/api/beta/audio/startrecord"
+    payload = json.dumps({"FileName": file_name})
+    headers = {
+        'Content-Type': "application/json",
+        'Cache-Control': "no-cache"
+    }
+    response = requests.request("POST", url, data=payload, headers=headers)
+    print(response.text)
+
+
+# Directs Misty to stop the current audio recording
+def stop_recording_audio():
+    url = "http://" + ip_address + "/api/beta/audio/stoprecord"
+    headers = {
+        'Content-Type': "application/json",
+        'Cache-Control': "no-cache"
+    }
+    response = requests.request("POST", url, headers=headers)
+    print(response.text)
+
+
+def main():
+    # change_led(124, 40, 20)
+    # get_list_of_image()
+    # change_display_image("Angry.jpg", 10)
+    # get_list_of_audio_clips()
+    # play_audio_clip("001-OooOooo.wav", 50)
+    # delete_image_asset_from_robot("test.png")
+    # save_image_to_misty("test.png")
+    # save_audio_to_misty("test.mp3")
+    # get_list_of_audio_clips()
+    # play_audio_clip("test.mp3", 100)
     # t = "Welcome to University of Denver"
     # convert_text_to_audio(t)
-    # save_audio_to_misty(hashlib.md5(t).hexdigest()[:15]+".mp3", ipAddress)
-    # play_audio_clip(hashlib.md5(t).hexdigest()[:15]+".mp3", 100, ipAddress)
-    # delete_audio_clip_from_robot(hashlib.md5(t).hexdigest()[:15]+".mp3", ipAddress)
+    # save_audio_to_misty(hashlib.md5(t).hexdigest()[:15]+".mp3")
+    # play_audio_clip(hashlib.md5(t).hexdigest()[:15]+".mp3", 100)
+    # delete_audio_clip_from_robot(hashlib.md5(t).hexdigest()[:15]+".mp3")
+    # get_available_wifi_networks()
+    # get_battery_level()
+    # set_head_position(5, 8)
+    # play_audio_clip("test.mp3", 100)
+    # time.sleep(5)
+    # delete_audio_asset_from_robot("test.mp3")
+    # start_recording_audio("new record.wav")
+    # time.sleep(1)
+    # stop_recording_audio()
+    # get_log_file()
+
+
+
+if __name__ == "__main__":
+    main()
+
+
+
