@@ -4,7 +4,6 @@ import _thread as thread  # for python 3.4+
 import threading
 import json
 from helpers import *
-
 '''
 Generally socket utility.
 Ideally use the MySocket class, that should work the best and allow for the creation of multiple sockets.

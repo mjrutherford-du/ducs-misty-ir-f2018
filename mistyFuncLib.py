@@ -14,6 +14,18 @@ import time
 
 
 ip_address = "192.168.1.5"
+rooms_text = [
+    "This is Room 266, The Advanced Manufacturing Laboratory",
+    "This is Room 278, The Perceptual and Cognitive Dynamics Laboratory",
+    "This is Room 262, The Dynometer Booth",
+    "This is Room 258, The Wind Tunnel",
+    "This is Room 256, Jerry Edelstein and Andrei Roudik's office",
+    "This is Room 248, The Mechatronics / Robotics / Vision Research Laboratory",
+    "This is Room 222, The Unmanned Systems and Research Laboratory, where I was worked on",
+    "This is Room 226, A Mechanical Engineering Laboratory",
+    "This is Room 242, The ECE Instructional Laboratory",
+    "This is Room 246, The Power Instructional Laboratory",
+]
 
 
 # Display and LED
@@ -166,9 +178,19 @@ def delete_audio_asset_from_robot(file_name):
     print(response.text)
 
 
-def convert_text_to_audio(text):
-    tts = gTTS(text=text, lang='en')
+def convert_and_play_text_to_audio(text):
+    language = 'en'
+
+    # Passing the text and language to the engine,
+    # here we have marked slow=False. Which tells
+    # the module that the converted audio should
+    # have a high speed
+    tts = gTTS(text=text, lang= language)
+    # Saving the converted audio in a mp3 file
     tts.save(hashlib.md5(text).hexdigest()[:15]+".mp3")
+    save_audio_to_misty(hashlib.md5(text).hexdigest()[:15]+".mp3")
+    play_audio_clip(hashlib.md5(text).hexdigest()[:15]+".mp3", 100)
+    delete_audio_asset_from_robot(hashlib.md5(text).hexdigest()[:15]+".mp3")
 
 
 ## Locomotion
@@ -335,11 +357,13 @@ def main():
     # play_audio_clip("test.mp3", 100)
     # time.sleep(5)
     # delete_audio_asset_from_robot("test.mp3")
-    # start_recording_audio("new record.wav")
-    # time.sleep(1)
-    # stop_recording_audio()
-    # get_log_file()
-
+    #start_recording_audio("new record.wav")
+    #time.sleep(1)
+    #stop_recording_audio()
+    #get_log_file()
+    for t in rooms_text:
+        convert_and_play_text_to_audio(t)
+        time.sleep(5)
 
 
 if __name__ == "__main__":
