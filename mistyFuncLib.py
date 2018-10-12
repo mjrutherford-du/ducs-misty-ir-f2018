@@ -11,9 +11,14 @@ import requests
 from gtts import gTTS
 import hashlib
 import time
+import speech_recognition as sr
+from pydub import AudioSegment
+from pydub.playback import play
 
 
 ip_address = "192.168.1.5"
+headers = {'Content-Type': "application/json",
+           'Cache-Control': "no-cache"}
 
 
 # Display and LED
@@ -26,10 +31,6 @@ def change_led(r, g, b):
         raise Exception("The blue value need to be in 0-255 range")
     url = "http://" + ip_address + "/api/led/change"
     payload = json.dumps({"red": r, "green": g, "blue": b})
-    headers = {
-        'Content-Type': "application/json",
-        'Cache-Control': "no-cache"
-    }
     response = requests.request("POST", url, data=payload, headers=headers)
     print(response.text)
 
@@ -37,10 +38,6 @@ def change_led(r, g, b):
 def get_list_of_image():
     image_list = []
     url = "http://" + ip_address + "/api/images"
-    headers = {
-        'Content-Type': "application/json",
-        'Cache-Control': "no-cache"
-    }
     response = requests.request("GET", url, headers=headers)
     for i in response.json():
         for j in i["result"]:
@@ -51,16 +48,12 @@ def get_list_of_image():
 
 
 def change_display_image(file_name, time_out):
-    if file_name not in get_list_of_image(ip_address):
-        raise Exception(file_name,"not found on the robot")
+    if file_name not in get_list_of_image():
+        raise Exception(file_name, "not found on the robot")
     else:
         url = "http://" + ip_address + "/api/images/change"
         payload = json.dumps(
             {"FileName": file_name, "TimeOutSeconds": time_out, "Alpha": 1})
-        headers = {
-            'Content-Type': "application/json",
-            'Cache-Control': "no-cache"
-        }
         response = requests.request("POST", url, data=payload, headers=headers)
         print(response.text)
 
@@ -79,10 +72,6 @@ def save_image_to_misty(image_name):
     url = "http://"+ip_address+"/api/images"
     payload = json.dumps({"FileName": image_name, "DataAsByteArrayString": new_string, "Width": "480", "Height": "272",
                           "ImmediatelyApply": True, "OverwriteExisting": True})
-    headers = {
-        'Content-Type': "application/json",
-        'Cache-Control': "no-cache"
-    }
     response = requests.request("POST", url, data=payload, headers=headers)
     print(response.text)
 
@@ -90,22 +79,15 @@ def save_image_to_misty(image_name):
 def delete_image_asset_from_robot(image_name):
     url = "http://" + ip_address + "/api/images/delete"
     payload = json.dumps({"FileName": image_name})
-    headers = {
-        'Content-Type': "application/json",
-        'Cache-Control': "no-cache"
-    }
     response = requests.request("POST", url, data=payload, headers=headers)
     print(response.text)
 
 
-# Audio
+## Audio
+
 def get_list_of_audio_clips():
     audio_list = []
     url = "http://" + ip_address + "/api/audio/clips"
-    headers = {
-        'Content-Type': "application/json",
-        'Cache-Control': "no-cache"
-    }
     response = requests.request("GET", url, headers=headers)
     for i in response.json():
         for j in i["result"]:
@@ -124,10 +106,6 @@ def play_audio_clip(file_name, volume):
         url = "http://" + ip_address + "/api/audio/play"
         payload = json.dumps(
             {"AssetId": file_name, "Volume": volume})
-        headers = {
-            'Content-Type': "application/json",
-            'Cache-Control': "no-cache"
-        }
         response = requests.request("POST", url, data=payload, headers=headers)
         print(response.text)
 
@@ -146,10 +124,6 @@ def save_audio_to_misty(audio_name):
     url = "http://"+ip_address+"/api/audio"
     payload = json.dumps({"FilenameWithoutPath": audio_name, "DataAsByteArrayString": new_string,
                           "ImmediatelyApply": False, "OverwriteExisting": True})
-    headers = {
-        'Content-Type': "application/json",
-        'Cache-Control': "no-cache"
-    }
     response = requests.request("POST", url, data=payload, headers=headers)
     print(response.text)
 
@@ -158,10 +132,6 @@ def save_audio_to_misty(audio_name):
 def delete_audio_asset_from_robot(file_name):
     url = "http://" + ip_address + "/api/beta/audio/delete"
     payload = json.dumps({"FileName": file_name})
-    headers = {
-        'Content-Type': "application/json",
-        'Cache-Control': "no-cache"
-    }
     response = requests.request("POST", url, data=payload, headers=headers)
     print(response.text)
 
@@ -169,6 +139,20 @@ def delete_audio_asset_from_robot(file_name):
 def convert_text_to_audio(text):
     tts = gTTS(text=text, lang='en')
     tts.save(hashlib.md5(text).hexdigest()[:15]+".mp3")
+
+
+def convert_mp3_to_wav(file_name, extension):
+    song = AudioSegment.from_mp3(file_name+"."+extension)
+    song.export(file_name+".wav", format="wav")
+    print "Successfully Converted: "+file_name+"."+extension+" to "+file_name+".wav"
+
+
+# Sets the default loudness of Misty's speakers for audio playback
+def set_default_volume(volume):
+    url = "http://" + ip_address + "/api/alpha/audio/volume"
+    payload = json.dumps({"Volume": volume})
+    response = requests.request("POST", url, data=payload, headers=headers)
+    print(response.text)
 
 
 ## Locomotion
@@ -180,10 +164,6 @@ def drive(linear_velocity, angular_velocity):
     url = "http://" + ip_address + "/api/drive"
     payload = json.dumps({"LinearVelocity": linear_velocity,
                           "AngularVelocity": angular_velocity})
-    headers = {
-        'Content-Type': "application/json",
-        'Cache-Control': "no-cache"
-    }
     response = requests.request("POST", url, data=payload, headers=headers)
     print(response.text)
 
@@ -197,10 +177,6 @@ def drive_time(linear_velocity, angular_velocity, time_in_ms):
     payload = json.dumps({"LinearVelocity": linear_velocity,
                           "AngularVelocity": angular_velocity,
                           "TimeMS": time_in_ms})
-    headers = {
-        'Content-Type': "application/json",
-        'Cache-Control': "no-cache"
-    }
     response = requests.request("POST", url, data=payload, headers=headers)
     print(response.text)
 
@@ -212,10 +188,6 @@ def locomotion_track(left_track_speed, right_track_speed):
     url = "http://" + ip_address + "/api/drive/track"
     payload = json.dumps({"LeftTrackSpeed": left_track_speed,
                           "RightTrackSpeed": right_track_speed})
-    headers = {
-        'Content-Type': "application/json",
-        'Cache-Control': "no-cache"
-    }
     response = requests.request("POST", url, data=payload, headers=headers)
     print(response.text)
 
@@ -223,10 +195,6 @@ def locomotion_track(left_track_speed, right_track_speed):
 # Stops Misty's movement
 def stop():
     url = "http://" + ip_address + "/api/drive/stop"
-    headers = {
-        'Content-Type': "application/json",
-        'Cache-Control': "no-cache"
-    }
     response = requests.request("POST", url, headers=headers)
     print(response.text)
 
@@ -236,10 +204,6 @@ def stop():
 # Obtains a list of local WiFi networks and basic information regarding each
 def get_available_wifi_networks():
     url = "http://" + ip_address + "/api/info/wifi"
-    headers = {
-        'Content-Type': "application/json",
-        'Cache-Control': "no-cache"
-    }
     response = requests.request("GET", url, headers=headers)
     print(response.text)
 
@@ -247,12 +211,27 @@ def get_available_wifi_networks():
 # Obtains Misty's current battery level
 def get_battery_level():
     url = "http://" + ip_address + "/api/info/battery"
-    headers = {
-        'Content-Type': "application/json",
-        'Cache-Control': "no-cache"
-    }
     response = requests.request("GET", url, headers=headers)
     print(response.text)
+
+
+# Obtains device-related information for the robot
+def get_device_info():
+    url = "http://" + ip_address + "/api/info/device"
+    response = requests.request("GET", url, headers=headers)
+    with open("device info.txt", mode='w') as f:
+        f.write(response.text)
+
+
+# Obtains information about a specified API command
+def get_help(command=None):
+    if command is None:
+        url = "http://" + ip_address + "/api/info/help"
+    else:
+        url = "http://" + ip_address + "/api/info/help?command="+command
+    response = requests.request("GET", url, headers=headers)
+    print(response.text)
+
 
 
 # Obtains the robot's recent log files.
@@ -262,14 +241,29 @@ def get_log_file(date=None):
         log_file_name = "full_logs.txt"
     else:
         url = "http://" + ip_address + "/api/info/logs?date=" + date
-        log_file_name = "log_" + date + ".txt"
-    headers = {
-        'Content-Type': "application/json",
-        'Cache-Control': "no-cache"
-    }
+        log_file_name = "log_" + date + "_1.txt"
     response = requests.request("GET", url, headers=headers)
     with open(log_file_name, mode='w') as f:
         f.write(response.text)
+
+
+# Provides a list of available WebSocket data from Misty to which you can subscribe
+def get_websocket_help():
+    url = "http://" + ip_address + "/api/beta/info/help/websocket"
+    response = requests.request("GET", url, headers=headers)
+    with open("device info.txt", mode='w') as f:
+        f.write(response.text)
+
+
+## Configuration
+
+# Connects Misty to a specified WiFi source
+def set_wifi_connection(network_name, password):
+    url = "http://" + ip_address + "/api/wifi"
+    payload = json.dumps({"NetworkName": network_name,
+                          "Password": password})
+    response = requests.request("POST", url, data=payload, headers=headers)
+    print(response.text)
 
 
 ## Head Movement
@@ -280,11 +274,67 @@ def set_head_position(position, velocity):
     payload = json.dumps({"Axis": "pitch",
                           "position": position,
                           "Velocity": velocity})
-    headers = {
-        'Content-Type': "application/json",
-        'Cache-Control': "no-cache"
-    }
     response = requests.request("POST", url, data=payload, headers=headers)
+    print(response.text)
+
+
+## Faces - AI
+
+# Initiates Misty's detection of faces in her line of vision
+def start_face_detection():
+    url = "http://" + ip_address + "/api/beta/faces/detection/start"
+    response = requests.request("POST", url, headers=headers)
+    print(response.text)
+
+
+# Stops Misty's detection of faces in her line of vision
+def stop_face_detection():
+    url = "http://" + ip_address + "/api/beta/faces/detection/stop"
+    response = requests.request("POST", url, headers=headers)
+    print(response.text)
+
+
+# Trains Misty to recognize a specific face and applies a user-assigned ID to that face.
+# face_id: Only alpha-numeric, -, and _ are valid characters
+def start_face_training(face_id):
+    url = "http://" + ip_address + "/api/beta/faces/training/start"
+    payload = json.dumps({"faceId": face_id})
+    response = requests.request("POST", url, data=payload, headers=headers)
+    print(response.text)
+
+
+# Halts face training that is currently in progress
+def cancel_face_training():
+    url = "http://" + ip_address + "/api/beta/faces/training/cancel"
+    response = requests.request("POST", url, headers=headers)
+    print(response.text)
+
+
+# Directs Misty to recognize a face she sees, if it is among those she already knows
+def start_face_recognition():
+    url = "http://" + ip_address + "/api/beta/faces/recognition/start"
+    response = requests.request("POST", url, headers=headers)
+    print(response.text)
+
+
+# Stops the process of Misty recognizing a face she sees
+def stop_face_recognition():
+    url = "http://" + ip_address + "/api/beta/faces/recognition/stop"
+    response = requests.request("POST", url, headers=headers)
+    print(response.text)
+
+
+# Obtains a list of the names of faces on which Misty has been successfully trained
+def get_learned_faces():
+    url = "http://" + ip_address + "/api/beta/faces"
+    response = requests.request("GET", url, headers=headers)
+    print(response.text)
+
+
+# Removes records of previously trained faces from Misty's memory
+def clear_learned_faces():
+    url = "http://" + ip_address + "/api/beta/faces/clearall"
+    response = requests.request("POST", url, headers=headers)
     print(response.text)
 
 
@@ -294,10 +344,6 @@ def set_head_position(position, velocity):
 def start_recording_audio(file_name):
     url = "http://" + ip_address + "/api/beta/audio/startrecord"
     payload = json.dumps({"FileName": file_name})
-    headers = {
-        'Content-Type': "application/json",
-        'Cache-Control': "no-cache"
-    }
     response = requests.request("POST", url, data=payload, headers=headers)
     print(response.text)
 
@@ -305,11 +351,83 @@ def start_recording_audio(file_name):
 # Directs Misty to stop the current audio recording
 def stop_recording_audio():
     url = "http://" + ip_address + "/api/beta/audio/stoprecord"
-    headers = {
-        'Content-Type': "application/json",
-        'Cache-Control': "no-cache"
-    }
     response = requests.request("POST", url, headers=headers)
+    print(response.text)
+
+
+# Converting audio file to text
+def speech_recognition(file_name):
+    r = sr.Recognizer()
+
+    a = sr.AudioFile(file_name)
+    with a as source:
+        audio = r.record(source)
+
+    try:
+        print("You said: " + r.recognize_google(audio))
+    except sr.UnknownValueError:
+        print("Google Speech Recognition could not understand audio")
+    except sr.RequestError as e:
+        print("Could not request results from Google Speech Recognition service; {0}".format(e))
+
+
+## Alpha - Mapping & Tracking
+
+# Obtains values representing Misty's current activity and sensor status
+def slam_get_status():
+    url = "http://" + ip_address + "/api/alpha/slam/status"
+    response = requests.request("GET", url, headers=headers)
+    print(response.text)
+
+
+# Resets the SLAM sensors
+def slam_reset():
+    url = "http://" + ip_address + "/api/alpha/slam/reset"
+    response = requests.request("POST", url, headers=headers)
+    print(response.text)
+
+
+# Starts Misty mapping an area
+def slam_start_mapping():
+    url = "http://" + ip_address + "/api/alpha/slam/map/start"
+    response = requests.request("POST", url, headers=headers)
+    print(response.text)
+
+
+# Stops Misty mapping an area
+def slam_stop_mapping():
+    url = "http://" + ip_address + "/api/alpha/slam/map/stop"
+    response = requests.request("POST", url, headers=headers)
+    print(response.text)
+
+
+# Starts Misty tracking her location
+def slam_start_tracking():
+    url = "http://" + ip_address + "/api/alpha/slam/track/start"
+    response = requests.request("POST", url, headers=headers)
+    print(response.text)
+
+
+# Stops Misty tracking her location
+def slam_stop_tracking():
+    url = "http://" + ip_address + "/api/alpha/slam/track/stop"
+    response = requests.request("POST", url, headers=headers)
+    print(response.text)
+
+
+# Obtains the current map Misty has generated
+def slam_get_map():
+    url = "http://" + ip_address + "/api/alpha/slam/map/smooth"
+    response = requests.request("GET", url, headers=headers)
+    print(response.text)
+
+
+# Drives Misty on a path defined by coordinates you specify
+# path: A list containing 1 or more sets of integer pairs representing X and Y coordinates
+def follow_path(path):
+    url = "http://" + ip_address + "/api/alpha/drive/path"
+    payload = json.dumps({"Path": path})
+    response = requests.request("GET", url, data=payload, headers=headers)
     print(response.text)
 
 
@@ -324,8 +442,14 @@ def main():
     # save_audio_to_misty("test.mp3")
     # get_list_of_audio_clips()
     # play_audio_clip("test.mp3", 100)
-    # t = "Welcome to University of Denver"
+    # t = """
+    #
+    # Welcome to ECS Building!
+    #
+    # """
     # convert_text_to_audio(t)
+    # audio = AudioSegment.from_mp3(hashlib.md5(t).hexdigest()[:15]+".mp3")
+    # play(audio)
     # save_audio_to_misty(hashlib.md5(t).hexdigest()[:15]+".mp3")
     # play_audio_clip(hashlib.md5(t).hexdigest()[:15]+".mp3", 100)
     # delete_audio_clip_from_robot(hashlib.md5(t).hexdigest()[:15]+".mp3")
@@ -335,11 +459,21 @@ def main():
     # play_audio_clip("test.mp3", 100)
     # time.sleep(5)
     # delete_audio_asset_from_robot("test.mp3")
-    # start_recording_audio("new record.wav")
-    # time.sleep(1)
+    # start_recording_audio("new_record")
+    # time.sleep(3)
     # stop_recording_audio()
-    # get_log_file()
-
+    # get_log_file("2018-10-09")
+    # get_device_info()
+    # convert_mp3_to_wav(hashlib.md5(t).hexdigest()[:15], "mp3")
+    # speech_recognition(hashlib.md5(t).hexdigest()[:15]+".wav")
+    # get_help()
+    # set_head_position(-2, 8)
+    # start_face_training("Vince_Luo")
+    # time.sleep(15)
+    # get_learned_faces()
+    # start_face_recognition()
+    # time.sleep(10)
+    # stop_face_recognition()
 
 
 if __name__ == "__main__":
