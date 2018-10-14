@@ -17,10 +17,10 @@ from pydub.playback import play
 
 
 ip_address = "192.168.1.5"
-<<<<<<< HEAD
+
 headers = {'Content-Type': "application/json",
            'Cache-Control': "no-cache"}
-=======
+           
 rooms_text = [
     "This is Room 266, The Advanced Manufacturing Laboratory",
     "This is Room 278, The Perceptual and Cognitive Dynamics Laboratory",
@@ -33,7 +33,6 @@ rooms_text = [
     "This is Room 242, The ECE Instructional Laboratory",
     "This is Room 246, The Power Instructional Laboratory",
 ]
->>>>>>> 2fc691bdfbf14d3e52322b872a1acfa68a7f6f6a
 
 
 # Display and LED
@@ -484,7 +483,6 @@ def main():
     # play_audio_clip("test.mp3", 100)
     # time.sleep(5)
     # delete_audio_asset_from_robot("test.mp3")
-<<<<<<< HEAD
     # start_recording_audio("new_record")
     # time.sleep(3)
     # stop_recording_audio()
@@ -500,7 +498,6 @@ def main():
     # start_face_recognition()
     # time.sleep(10)
     # stop_face_recognition()
-=======
     #start_recording_audio("new record.wav")
     #time.sleep(1)
     #stop_recording_audio()
@@ -508,7 +505,6 @@ def main():
     for t in rooms_text:
         convert_and_play_text_to_audio(t)
         time.sleep(5)
->>>>>>> 2fc691bdfbf14d3e52322b872a1acfa68a7f6f6a
 
 
 if __name__ == "__main__":
