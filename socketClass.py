@@ -79,7 +79,14 @@ unsubscribeMessages = {
 # these would be what data should be returned out of the data recieved from the socket.
 def handleTOFSocket(message):
     # print(f"Handling message {message}")
-    return str(message) + " handled!"
+    retData = None
+    try:
+        retData = message['message']['distanceInMeters']
+    except Exception as e:
+        # print("Error")
+        return None
+    return retData
+    # return str(message) + " handled!"
 
 def handleTOFSocket2(message):
     # print(f"Handling message {message}")
@@ -129,8 +136,15 @@ except maybe for somethingg specific like the computer vision one or something.
 '''
 class MySocket:
     # position should really be like type
-    def __init__(self, addr, id='Bob', position='CENTER', type='TOF', maxMessages=-2):
+    # thinking could add in the option to pass in what atributes interested in, then those are what is returned from
+    # the getData call, like maybe in a list, in the order of interest. then don't have to worry about using keys
+    # outside of this class.
+    # then actually, the getData function could be the same for every socket, it just loops over the interested
+    # attribute names, and gets those data. Just depends on if prefer to have the caller know the names of the attributes or not.
+    def __init__(self, addr="ws://" + IPADDRESS + "/pubsub", id='Bob', position='CENTER', type='TOF', maxMessages=-2, wantPrint=True, interestedAttributes=[]):
         print("INIT")
+        self.wantPrint = wantPrint
+        self.endOnMessageCount = True
         self.test = True if addr == "ws://echo.websocket.org/" else False
         self.id = id
         self.addr = addr
@@ -140,6 +154,9 @@ class MySocket:
         self.position = position if type == 'TOF' else 'SELF'
         self.distance = 8080
         self.messageCount = 0
+        # WARNING -- Might want to make a different copy here. shouldn't be an issue, but should check.
+        self.interestedAttributes = interestedAttributes
+        self.unsubscribed = False
         # default behavior
         if maxMessages == -2:
             self.totalMessages = 20 if self.type == 'TOF' else 50
@@ -149,7 +166,15 @@ class MySocket:
             else:
                 # should have an error.
                 # or, don't have a max messages.
-                self.totalMessages = 30 # just for now because don't want errors or anything.
+                self.endOnMessageCount = False
+                self.totalMessages = 30  # just for now because don't want errors or anything.
+        if len(interestedAttributes) == 0:
+            # default behavior then.
+            if type == 'TOF':
+                self.interestedAttributes.append('distanceInMeters')
+            else:  # for now assuming only TOF and SELF
+                self.interestedAttributes.append('occupancyGridCell')
+
         # websocket.enableTrace(True)
         self.ws = None
         # self.ws = websocket.WebSocketApp(addr, on_message=self.onMessage, on_error=self.onError, on_close=self.onClose)
@@ -169,8 +194,30 @@ class MySocket:
         # self.wst.start()
         self.ws.run_forever(ping_timeout=10)
 
+    '''
+    A much more complicated implementation would be instead of having the caller, constantly call getData, which isn't
+    changing as often as it is being called, could have it publish an event, which is subscribed too. (essentially, what
+    the socket is doing), then the caller is notified of changes and could handle them there.
+    But for out current simple purpose, this works fine.
+    '''
     def getData(self):
-        return handleMessageMap[self.position](self.data)
+        retData = []
+        for att in self.interestedAttributes:
+            try:
+                retData.append(self.data['message'][att])
+            except Exception as e:
+                # print("Exception")
+                retData.append(None)
+        return retData
+        # return handleMessageMap[self.position](self.data)
+
+    # What to call when finished. So don't have to count messages in the socket class.
+    def unsubscribe(self):
+        # this is really unsubscribed but want to be, trying to be a protection against anything.
+        self.unsubscribed = True
+        self.ws.send(json.dumps(unsubscribeMessages[self.position]))
+        # then normally would close.
+        self.ws.close()
 
     def onMessage(self, message):
         if self.test:
@@ -179,7 +226,7 @@ class MySocket:
         self.data = json.loads(message)
         self.messageCount += 1
 
-        if self.messageCount >= self.totalMessages:
+        if self.endOnMessageCount and self.messageCount >= self.totalMessages:
             # self.wst.join()
             print(f"{self.id}::Closing")
             if not self.test:
@@ -192,27 +239,31 @@ class MySocket:
             # this is essentially the part that only works for the time of flight sensors.
             # just the return messages are different.
 
-            messObj = json.loads(message)
+            # messObj = json.loads(message)
             if self.messageCount >= 1:
                 if self.type == 'TOF':
-                    self.distance = messObj['message']['distanceInMeters']
+                    self.distance = self.data['message']['distanceInMeters']
                 elif self.type == 'SELF':
+                    # this was just for printing purposes. So could just delete all of this for use
+                    # then handle prining outside of class.
                     # print(self.data)
                     # print("KEYS:")
-                    print(self.data['eventName'])
+                    if self.wantPrint:
+                        print(self.data['eventName'])
                     # print(list(self.data.keys))  # this line called an error. Think need to iterate it or something.
                     gridCell = self.data['message']['occupancyGridCell']
                     orientation = self.data['message']['orientation']
                     position = self.data['message']['position']
                     slamStatus = self.data['message']['slamStatus']
                     acceleration = self.data['message']['acceleration']
-                    currentGoal = self.data['message']['currentGoal']
-                    print(f"\tGrid Cell: {gridCell}\n\tOrientation: {orientation}\n\tPosition: {position}\n\tSlam Status: {slamStatus}")
-                    print(f"\tAcceleration: {acceleration}\n\tCurrentGoal: {currentGoal}")
+                    currentGoal = None  #self.data['message']['currentGoal']
+                    if self.wantPrint:
+                        print(f"\tGrid Cell: {gridCell}\n\tOrientation: {orientation}\n\tPosition: {position}\n\tSlam Status: {slamStatus}")
+                        print(f"\tAcceleration: {acceleration}\n\tCurrentGoal: {currentGoal}")
 
         print(f"Message Number {self.messageCount}")
         # print(f"DATA:: {self.data}")
-        if self.type == 'TOF':
+        if self.type == 'TOF' and self.wantPrint:
             print(f"{self.position}-Distance(m)::{self.distance}")
 
 
@@ -230,19 +281,6 @@ class MySocket:
         else:
             print(json.dumps(subscriptionMessages[self.position]))
             self.ws.send(json.dumps(subscriptionMessages[self.position]))
-
-
-
-
-'''
-This was initial socket testing. It works so I am keeping it an not changing it to use as a baseline test.
-If this doesn't work then should probably restart Misty.
-It just subscribes to the CENTER time of flight sensor.
-And will print out num_messages messages. Also has functionality to drive until something too close then turn.
-'''
-NUM_MESSAGES = 10 #200
-
-import time
 
 
 '''
