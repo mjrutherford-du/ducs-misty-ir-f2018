@@ -3,7 +3,6 @@ import time
 import _thread as thread  # for python 3.4+
 import threading
 import json
-from helpers import *
 
 '''
 Generally socket utility.
@@ -90,7 +89,19 @@ def handleSelfSocket(data):
     # so could tune this, to be specific.
     # cause could still get the whole self.data object, but this can be easier for certain things
     # like world position.
-    return data['message']['gridCell']
+    # print("============ HANDLING STUFFF ==================")
+    # print(data)
+    # if data is not None:
+    #     print(data['message'])
+
+        # print(data['message']['occupancyGridCell'])
+    retData = None
+    try:
+        retData = data['message']['occupancyGridCell']
+    except Exception as e:
+        print("ERROR")
+        return None
+    return retData
 
 handleMessageMap = {
     'CENTER': handleTOFSocket,
@@ -129,6 +140,7 @@ class MySocket:
         self.position = position if type == 'TOF' else 'SELF'
         self.distance = 8080
         self.messageCount = 0
+        # default behavior
         if maxMessages == -2:
             self.totalMessages = 20 if self.type == 'TOF' else 50
         else:
@@ -229,130 +241,6 @@ It just subscribes to the CENTER time of flight sensor.
 And will print out num_messages messages. Also has functionality to drive until something too close then turn.
 '''
 NUM_MESSAGES = 10 #200
-def testSockets():
-    # sock = socket()
-    print("[INFO] Testing Sockets")
-    subscribeMessage = {
-        "$id": "1",
-        "Operation": "subscribe",
-        "Type": "TimeOfFlight",
-        "DebounceMs": 50,  # 100
-        "EventName": "TimeOfFlight1",  # Center
-        "Message": "",
-        "ReturnProperty": None,
-        "EventConditions": [{
-            "Property": "SensorPosition",
-            "Inequality": "=",
-            "Value": "Center"
-        }]
-    }
-    subscribeMessage_RIGHT = {
-        "$id": "2",
-        "Operation": "subscribe",
-        "Type": "TimeOfFlight",
-        "DebounceMs": 50,  # 100
-        "EventName": "TimeOfFlightRight",  # Center
-        "Message": "",
-        "ReturnProperty": None,
-        "EventConditions": [{
-            "Property": "SensorPosition",
-            "Inequality": "=",
-            "Value": "Right"
-        }]
-    }
-
-    unsubscribeMessage = {
-        "Operation": "unsubscribe",
-        "EventName": "TimeOfFlight1",  # "CenterTimeOfFlight"
-        "Message": ""
-    }
-    unsubscribeMessage_RIGHT = {
-        "Operation": "unsubscribe",
-        "EventName": "TimeOfFlightRight",  # "CenterTimeOfFlight"
-        "Message": ""
-    }
-    messsageCheck = {
-        "count": 0,
-        "stopped": 0
-    }
-    timeOfFlightDistances = {
-        'center': 7070,
-        'right': 7070
-    }
-
-    # so here would set a data variable to store the message. so can access elsewhere.
-    messageCount = 0
-
-    def onClose(ws):
-        print("Closed")
-        # misty
-        # ws.send(str(unsubscribeMessage))
-        # ws.send(json.dumps(unsubscribeMessage))
-        # ws.close()
-
-    def onMessage(ws, message):
-        print("ON MESSAGE")
-        # print(message)
-        # print(messsageCheck)
-        messsageCheck["count"] += 1
-        messObj = json.loads(message)
-        # print(messObj)
-        distance = 70
-        if messsageCheck["count"] >= 2:
-            distance = messObj['message']['distanceInMeters']
-        print(f"Distance(m):: {distance}")
-        if distance < 0.25 and messsageCheck['stopped'] != 1:
-        # if distance < 0.25:
-            drive(speed=0, angularvelocity=0, time=1000)  # just a stop
-            # drive(speed=20, angularvelocity=-100, time=700)
-            drive(speed=20, angularvelocity=-100, time=-1)
-            messsageCheck['stopped'] = 1
-        if distance >= 0.25 and messsageCheck['stopped'] != 0:
-            # drive(speed=0, angularvelocity=0, time=1000)  # just a stop
-            drive(time=-1)
-            messsageCheck['stopped'] = 0
-
-
-        # messageCount += 1
-        # print(message)
-        # messageCount = 10
-        # print("Message Read")
-        # changeImage("pink_sunset.jpg")
-        if messsageCheck["count"] >= NUM_MESSAGES:
-            print("Shutting Down.")
-            # want to close the web socket, which with misty would involve first sending an unsubscribe.
-            # ws.close()
-            ws.send(json.dumps(unsubscribeMessage))
-            ws.close()
-
-    def onError(ws, error):
-        print("ERROR")
-        print(error)
-        print("Finished reporting error.")
-
-    # this is typical. so here would just send a subscribe message.
-    def onOpen(ws):
-        print("ON OPEN")
-        def run(*args):
-            print("RUN")
-            print(json.dumps(subscribeMessage))
-            # print(json.load(subscribeMessage))
-            ws.send(json.dumps(unsubscribeMessage))
-            print("Now subscribing")
-            ws.send(json.dumps(subscribeMessage))
-            drive(time=-1)
-            # ws.send("\"" + str(subscribeMessage) + "\"")
-
-        thread.start_new_thread(run, ())
-
-    websocket.enableTrace(True)
-    # "ws://" IPADDRESS + "/pubsub"
-    addr = "ws://" + IPADDRESS + "/pubsub"
-    # addr = "ws://echo.websocket.org/"
-    webSock = websocket.WebSocketApp(addr, on_message=onMessage, on_error=onError, on_close=onClose)
-    webSock.on_open = onOpen
-    # can have a pingTimeout=10
-    webSock.run_forever(ping_timeout=10)
 
 import time
 
@@ -376,52 +264,5 @@ slamStatus
 stringMessages
 touchedState
 '''
-def testSelfSocket():
-    addr = "ws://" + IPADDRESS + "/pubsub"
-    sock = MySocket(addr, id="Bill", type="SELF")
 
-def testTOFSockets():
-    # addr = "ws://echo.websocket.org/"
-    addr = "ws://" + IPADDRESS + "/pubsub"
-    # this should be able to listen to the Center and right TOF sensors at the same time.
-    # and the readings begin as soon as the sockets are created.
-    sock = MySocket(addr, id="Steve")
-    sock2 = MySocket(addr, id="James", position='RIGHT')
-    # so if do it this way, the data will catch up, but not for a while
-    sock1Data = 0
-    sock2Data = 0
-    noChangeCount = 0
-    # for i in range(5000):
-    # could just make this a while true
-    # this gets updates pretty quick
-    # issue is sometimes it does miss some updates to the sockets. but with misty it should be slow enough
-    while True:
-        # print("Stuff")
-        # sock1Data = sock.getData()
-        # print(f"1sock data:: {sock1Data}")
-        if sock.getData() != sock1Data:
-            sock1Data = sock.getData()
-            print(f"1sock data:: {sock1Data}")
-            noChangeCount = 0
-        if sock2.getData() != sock2Data:
-            sock2Data = sock2.getData()
-            print(f"2sock data::{sock2Data}")
-            noChangeCount = 0
-        noChangeCount += 1
-        if noChangeCount >= 30:
-            break
-        # with 0.1 it was missing every other message
-        # also want to check if this sleeps this thread or everything, but if it was everything, would have thought that
-        # it would when it was 0.1, have skipped the output in the socket class also.
-        time.sleep(0.02)
-    print("Finishedsocketing")
-
-if __name__ == "__main__":
-    # testSockets()
-    # exit()
-    # changeImage()
-    # exit()
-    # testTOFSockets()
-    testSelfSocket()
-    exit()
 
