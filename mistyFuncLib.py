@@ -14,6 +14,15 @@ import time
 import speech_recognition as sr
 from pydub import AudioSegment
 from pydub.playback import play
+import re
+import base64
+from io import BytesIO
+from PIL import Image
+import imageio
+import os
+import pyzbar.pyzbar as pyzbar
+import cv2
+import pyqrcode
 
 
 ip_address = "192.168.1.5"
@@ -97,6 +106,152 @@ def delete_image_asset_from_robot(image_name):
     print(response.text)
 
 
+def clear_display_text():
+    url = "http://" + ip_address + "/api/beta/text/clear"
+    response = requests.request("POST", url, headers=headers)
+    print(response.text)
+
+
+def get_image(file_name, need_base64=False):
+    url = "http://" + ip_address + "/api/alpha/image?FileName="+file_name+"&Base64="+str(need_base64)
+    response = requests.request("GET", url, headers=headers)
+    if need_base64 is True:
+        image_info = json.loads(response.text)[0]['result']
+        base64_str = image_info['base64']
+        base64_data = re.sub('^data:image/.+;base64,', '', base64_str)
+        byte_data = base64.b64decode(base64_data)
+        image_data = BytesIO(byte_data)
+        img = Image.open(image_data)
+        img.save(file_name)
+    else:
+        with open(file_name, 'wb') as f:
+            f.write(response.content)
+    print("Done")
+
+
+def take_picture(file_name=None, need_base64=False):
+    url = "http://" + ip_address + "/api/alpha/camera?&Base64=" + str(need_base64)
+    response = requests.request("GET", url, headers=headers)
+    if need_base64 is True:
+        image_info = json.loads(response.text)[0]['result']
+        if file_name is None:
+            file_name = image_info['name'] + ".jpg"
+        base64_str = image_info['base64']
+        base64_data = re.sub('^data:image/.+;base64,', '', base64_str)
+        byte_data = base64.b64decode(base64_data)
+        image_data = BytesIO(byte_data)
+        img = Image.open(image_data)
+        img.save(file_name)
+    else:
+        if file_name is None:
+            ext = response.headers['content-type'][-3:]
+            file_name = "cameraPic."+ext
+        with open(file_name, 'wb') as f:
+            f.write(response.content)
+    print("Done")
+
+
+def slam_get_visible_image(file_name=None, need_base64=True):
+    url = "http://" + ip_address + "/api/alpha/slam/visibleimage?&Base64=" + str(need_base64)
+    response = requests.request("GET", url, headers=headers)
+    if need_base64 is True:
+        image_info = json.loads(response.text)[0]['result']
+        if file_name is None:
+            file_name = image_info['name'] + ".jpg"
+        base64_str = image_info['base64']
+        base64_data = re.sub('^data:image/.+;base64,', '', base64_str)
+        byte_data = base64.b64decode(base64_data)
+        image_data = BytesIO(byte_data)
+        img = Image.open(image_data)
+        img.save(file_name)
+    else:
+        if file_name is None:
+            ext = response.headers['content-type'][-3:]
+            file_name = "visibaleImg."+ext
+        with open(file_name, 'wb') as f:
+            f.write(response.content)
+    print("Done")
+
+
+def slam_get_depth_image():
+    url = "http://" + ip_address + "/api/alpha/slam/depthimage"
+    response = requests.request("GET", url, headers=headers)
+    print(response.text)
+
+
+def slam_start_streaming():
+    url = "http://" + ip_address + "/api/alpha/slam/streaming/start"
+    response = requests.request("POST", url, headers=headers)
+    print(response.text)
+
+
+def slam_stop_streaming():
+    url = "http://" + ip_address + "/api/alpha/slam/streaming/stop"
+    response = requests.request("POST", url, headers=headers)
+    print(response.text)
+
+
+def save_images_to_gif(startwith="VisibleImage"):
+    images = []
+    file_names = sorted((fn for fn in os.listdir('.') if fn.startswith(startwith)))
+    for filename in file_names:
+        images.append(imageio.imread(filename))
+    imageio.mimsave(startwith+'.gif', images, duration=0.3)
+    print("Done")
+
+
+# To use this function, you need to install "zbar" first: (for Mac) brew install zbar
+# And then: pip install pyzbar, opencv-python
+def decode_qrcode(file_name):
+    im = cv2.imread(file_name)
+    decoded_objects = pyzbar.decode(im)
+    info = ""
+    if decoded_objects != []:
+        for obj in decoded_objects:
+            info = str(obj.data)[2:-1]
+            print(info)
+    else:
+        print("Didn't find QRcode from the image. Please try again.")
+
+    return info
+
+
+# To use this function, you need to install: pip install pyqrcode, pypng
+def generate_qrcode(content, file_name, scale=10):
+    qr_code = pyqrcode.create(content)
+    qr_code.png(file_name, scale=scale)
+    print("Done")
+
+
+def detect_face(file_name):
+
+    # Create the haar cascade
+    face_cascade = cv2.CascadeClassifier('haarcascade_frontalface_default.xml')
+
+    # Read the image
+    image = cv2.imread(file_name)
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+
+    # Detect faces in the image
+    faces = face_cascade.detectMultiScale(
+        gray,
+        scaleFactor=1.2,
+        minNeighbors=5,
+        minSize=(30, 30)
+    )
+
+    if len(faces) != 0:
+        print("Hello Human!")
+        print("Found {0} faces!".format(len(faces)))
+        for (x, y, w, h) in faces:
+            cv2.rectangle(image, (x, y), (x + w, y + h), (0, 255, 0), 2)
+
+        cv2.imshow("Faces found", image)
+        cv2.waitKey(0)
+    else:
+        print("Nothing")
+
+
 ## Audio
 
 def get_list_of_audio_clips():
@@ -168,7 +323,7 @@ def convert_and_play_text_to_audio(text):
 def convert_mp3_to_wav(file_name, extension):
     song = AudioSegment.from_mp3(file_name+"."+extension)
     song.export(file_name+".wav", format="wav")
-    print "Successfully Converted: "+file_name+"."+extension+" to "+file_name+".wav"
+    print("Successfully Converted: "+file_name+"."+extension+" to "+file_name+".wav")
 
 
 # Sets the default loudness of Misty's speakers for audio playback
@@ -177,6 +332,13 @@ def set_default_volume(volume):
     payload = json.dumps({"Volume": volume})
     response = requests.request("POST", url, data=payload, headers=headers)
     print(response.text)
+
+
+def get_audio_file(file_name):
+    url = "http://" + ip_address + "/api/alpha/audio/file?FileName="+file_name
+    response = requests.request("GET", url, headers=headers)
+    with open(file_name, 'wb') as f:
+        f.write(response.content)
 
 
 ## Locomotion
