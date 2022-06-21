@@ -21,7 +21,7 @@ gTTS-token==1.1.2
 httplib2==0.11.3
 idna==2.7
 imageio==2.4.1
-numpy==1.15.2
+numpy==1.22.0
 opencv-python==3.4.3.18
 Pillow==5.3.0
 protobuf==3.6.1
